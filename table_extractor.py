@@ -404,9 +404,6 @@ def process_page(doc_stats, page):
                 if stopped:
                     continue
 
-                if page['page_no'] == '5':
-                    print extracts[extract_idx]['indicator_line']['name'], 'Intersects?', area_idx, helpers.rectangles_intersect(extracts[extract_idx]['indicator_line'], page['areas'][area_idx])
-
                 if page['areas'][area_idx]['type'] == 'possible table' and direction == extracts[extract_idx]['direction']:
                     #print 'extend', extracts[extract_idx]['name'], 'into possible table'
                     extracts[extract_idx].update(helpers.enlarge_extract(extracts[extract_idx], page['areas'][area_idx]))
