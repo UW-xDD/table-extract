@@ -20,16 +20,36 @@ def plot(soup, extracts):
 
         return
 
-    pages = soup.find_all('div', 'ocr_page')
-    careas = soup.find_all('div', 'ocr_carea')
-    words = soup.find_all('span', 'ocrx_word')
-
-    page_boxes = [makeBox(getbbox(page.get('title'))) for page in pages]
-    carea_boxes = [makeBox(getbbox(carea.get('title'))) for carea in careas]
-    word_boxes = [makeBox(getbbox(word.get('title'))) for word in words]
+    page_boxes = [makeBox(getbbox(page.get('title'))) for page in soup.find_all('div', 'ocr_page')]
+    carea_boxes = [makeBox(getbbox(carea.get('title'))) for carea in soup.find_all('div', 'ocr_carea')]
+    word_boxes = [makeBox(getbbox(word.get('title'))) for word in soup.find_all('span', 'ocrx_word')]
+    line_boxes = [makeBox(getbbox(box.get('title'))) for box in soup.find_all('span', 'ocr_line')]
+#    pars = [makeBox(getbbox(box.get('title'))) for box in soup.find_all('p', 'ocr_par')]
 
     fig = plt.figure()
     ax = fig.add_subplot(111, aspect='equal')
+
+    for box in line_boxes:
+        ax.add_patch(patches.Rectangle(
+            (box['_left'], box['_top']),
+            box['_right'] - box['_left'],
+            box['_bottom'] - box['_top'],
+            fill=False,
+            linewidth=0.5,
+            edgecolor="#85DB18"
+            )
+            )
+
+    # for box in pars:
+    #     ax.add_patch(patches.Rectangle(
+    #         (box['_left'], box['_top']),
+    #         box['_right'] - box['_left'],
+    #         box['_bottom'] - box['_top'],
+    #         fill=False,
+    #         linewidth=0.5,
+    #         edgecolor="#85DB18"
+    #         )
+    #         )
 
     for box in carea_boxes:
         ax.add_patch(patches.Rectangle(
@@ -71,4 +91,4 @@ def plot(soup, extracts):
     ax = plt.gca()
     ax.invert_yaxis()
     plt.axis('off')
-    fig.savefig('tables.png', dpi=400, bbox_inches='tight', pad_inches=0)
+    fig.savefig('page_3.png', dpi=400, bbox_inches='tight', pad_inches=0)

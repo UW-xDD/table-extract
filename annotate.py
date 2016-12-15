@@ -26,7 +26,6 @@ def tess(infile, outfile):
         text = hocr.read()
 
     soup = BeautifulSoup(text, "html.parser")
-
     pages = soup.find_all('div', 'ocr_page')
     careas = soup.find_all('div', 'ocr_carea')
     #pars = soup.find_all('p', 'ocr_par')

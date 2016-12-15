@@ -1,6 +1,37 @@
 import math
 import numpy as np
 import itertools
+from PIL import Image
+from shapely.geometry import Polygon
+from shapely.ops import cascaded_union
+
+def make_polygon(area):
+    return Polygon([(area['x1'], area['y1']), (area['x1'], area['y2']), (area['x2'], area['y2']), (area['x2'], area['y1']), (area['x1'], area['y1'])])
+
+
+def polygon_to_extract(polygon):
+    bounds = polygon.bounds
+    return {
+        'x1': bounds[0],
+        'y1': bounds[1],
+        'x2': bounds[2],
+        'y2': bounds[3]
+    }
+
+
+def union_extracts(extracts):
+    unioned = cascaded_union([ make_polygon(p) for p in extracts ])
+
+    if unioned.geom_type == 'Polygon':
+        return [ polygon_to_extract(unioned) ]
+    else:
+        return [ polygon_to_extract(geom) for geom in unioned ]
+
+
+def extract_table(doc, page, extract):
+    image = Image.open('%s/png/page_%s.png' % (doc, page))
+    image.crop((extract['x1'], extract['y1'], extract['x2'], extract['y2'])).save(doc + '/tables/page_' + str(page) + '_' + extract['name'].replace(' ', '_').replace('.', '') + '.png', 'png')
+
 
 def enlarge_extract(extract, area):
     return {
@@ -44,11 +75,20 @@ def centroid(x):
     }
 
 
+def min_distance(a, b):
+    # Calculate 3 different distances and return the best one
+    return min([ distance(a, b), top_left_distance(a, b), bottom_right_distance(a, b) ])
+
+def top_left_distance(a, b):
+    return abs(math.sqrt(math.pow((b['x1'] - a['x1']), 2) + math.pow((b['y1'] - a['y1']), 2)))
+
+def bottom_right_distance(a, b):
+    return abs(math.sqrt(math.pow((b['x2'] - a['x2']), 2) + math.pow((b['y2'] - a['y2']), 2)))
+
 def distance(a, b):
     centroid_a = centroid(a)
     centroid_b = centroid(b)
     return abs(math.sqrt(math.pow((centroid_b['x'] - centroid_a['x']), 2) + math.pow((centroid_b['y'] - centroid_a['y']), 2)))
-
 
 def get_gaps(x_axis):
     '''
@@ -60,7 +100,6 @@ def get_gaps(x_axis):
     '''
     gaps = []
     currentGap = 0
-
     for x in x_axis:
         if x == 1:
             if currentGap != 0:
@@ -71,6 +110,32 @@ def get_gaps(x_axis):
 
     return gaps
 
+
+def expand_area(input_area, all_areas):
+    text_blocks = [area for area in all_areas if area['type'] == 'text block']
+    candidate_areas = [area for area in all_areas if area['type'] != 'text block' and area['type'] != 'decoration']
+
+    extract = {
+        'x1': input_area['x1'],
+        'y1': input_area['y1'],
+        'x2': input_area['x2'],
+        'y2': input_area['y2']
+    }
+
+    for area in candidate_areas:
+        # Create a geometry that is the current extract + the current area
+        candidate_new_extract = enlarge_extract(extract, area)
+
+        valid_extraction = True
+        for block in text_blocks:
+            will_intersect = rectangles_intersect(candidate_new_extract, block)
+            if will_intersect:
+                valid_extraction = False
+
+        if valid_extraction:
+            extract.update(candidate_new_extract)
+
+    return extract
 
 # Translated from the C++ implementation found here - http://www.geeksforgeeks.org/check-if-two-given-line-segments-intersect/
 def lines_intersect(l1, l2):
@@ -196,49 +261,3 @@ def lines_intersect(l1, l2):
         return True
 
     return False
-
-
-# l1 = {
-#     'x1': 1,
-#     'y1': 1,
-#     'x2': 10,
-#     'y2': 1
-# }
-# l2 = {
-#     'x1': 1,
-#     'y1': 2,
-#     'x2': 10,
-#     'y2': 2
-# }
-#
-# print intersect(l1,l2)
-# # => False
-# l1 = {
-#     'x1': 10,
-#     'y1': 0,
-#     'x2': 0,
-#     'y2': 10
-# }
-# l2 = {
-#     'x1': 0,
-#     'y1': 0,
-#     'x2': 10,
-#     'y2': 10
-# }
-#
-# print intersect(l1,l2)
-# # => True
-# l1 = {
-#     'x1': -5,
-#     'y1': -5,
-#     'x2': 0,
-#     'y2': 0
-# }
-# l2 = {
-#     'x1': 1,
-#     'y1': 1,
-#     'x2': 10,
-#     'y2': 10
-# }
-# # => False
-# print intersect(l1,l2)

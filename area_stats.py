@@ -134,6 +134,8 @@ def tess():
         # Other
         elif caption_matches:
             print caption_matches.group(0)
+            bbox = helpers.extractbbox(line.get('title'))
+            bbox['name'] = caption_matches.group(0)
             indicator_lines.append(helpers.extractbbox(line.get('title')))
 
 
