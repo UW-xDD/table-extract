@@ -2,7 +2,7 @@
 A tool for extracting tables, figures, maps, and pictures from PDFs using Tesseract
 
 ## preprocess.sh
-Script for prepping a PDF for table extraction. Converts each page of the PDF to a PNG with Ghostscript, then runs the PNGs through Tesseract. Also runs each page through `annotate.py` to assist in debugging.
+Script for prepping a PDF for table extraction. Converts each page of the PDF to a PNG with Ghostscript, then runs the PNGs through Tesseract. Also runs each page through `annotate.py` to assist in debugging. Assumes local installation of [tesseract-ocr](https://github.com/tesseract-ocr/tesseract).
 
 #### Example usage
 
