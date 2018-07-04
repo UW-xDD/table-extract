@@ -1,7 +1,10 @@
 import math
 import numpy as np
 import itertools
+
 from PIL import Image
+from shapely.ops import cascaded_union
+from shapely.geometry import Polygon
 
 def make_polygon(area):
     return Polygon([(area['x1'], area['y1']), (area['x1'], area['y2']), (area['x2'], area['y2']), (area['x2'], area['y1']), (area['x1'], area['y1'])])
