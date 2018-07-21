@@ -1,12 +1,9 @@
 @ECHO OFF
 
-IF %1.==. (
-    ECHO No parameter have been provided
+IF %2.==. (
+    ECHO Please provide an output directory and an input PDF. Example: pdf2hocr ./ocrd ~/Downloads/document.pdf
     EXIT /b
-) ELSE (
-    ECHO Parameters:
-    ECHO %1
-)
+) 
 
 MKDIR %1
 MKDIR %1\png
