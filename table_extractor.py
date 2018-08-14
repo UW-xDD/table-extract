@@ -761,9 +761,7 @@ def extract_tables(document_path):
 
     for page in pages:
         new_areas = helpers.reclassify_areas(page['areas'], doc_stats['line_height_avg']/2)
-        helpers.plot_new_areas(page['page_no'], new_areas)
-
-    sys.exit()
+        # helpers.plot_new_areas(page['page_no'], new_areas)
 
     doc_stats['found_tables'] = figure_idx
     print 'these tables were found --'
@@ -795,5 +793,5 @@ def extract_tables(document_path):
         #         print '    Gaps: %s' % (area['gaps'])
         #         print '    Line height average: %s' %(np.nanmean(area['line_heights']))
         #     plot(page['soup'], page_extracts)
-    for table in page_extracts:
-        helpers.extract_table(document_path, page['page_no'], table)
+        for table in page_extracts:
+            helpers.extract_table(document_path, page['page_no'], table)

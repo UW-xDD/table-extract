@@ -89,7 +89,7 @@ def tess(infile, outfile):
     ax = plt.gca()
     ax.invert_yaxis()
     plt.axis('off')
-    fig.savefig(outfile, dpi=400, bbox_inches='tight', pad_inches=0)
+    # fig.savefig(outfile, dpi=400, bbox_inches='tight', pad_inches=0)
 
 
 if len(sys.argv) == 3:
