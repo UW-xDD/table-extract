@@ -1,7 +1,7 @@
 # tesseract-tables
 A tool for extracting tables, figures, maps, and pictures from PDFs using Tesseract
 
-## Dependencies
+## Installation
 If you are using MacOS you can install the dependencies as so:
 
 ````
