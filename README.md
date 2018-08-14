@@ -1,6 +1,14 @@
 # tesseract-tables
 A tool for extracting tables, figures, maps, and pictures from PDFs using Tesseract
 
+## Dependencies
+If you are using MacOS you can install the dependencies as so:
+
+````
+brew install ghostscript parallel tesseract
+````
+
+
 ## preprocess.sh
 Script for prepping a PDF for table extraction. Converts each page of the PDF to a PNG with Ghostscript, then runs the PNGs through Tesseract. Also runs each page through `annotate.py` to assist in debugging. Assumes local installation of [tesseract-ocr](https://github.com/tesseract-ocr/tesseract).
 
@@ -41,3 +49,10 @@ Entry script to table extraction.
 
 #### extract_tables(document_path)
 Process a document for tables. Pass it a path to a document that has been pre-processed with pdf2hocr
+
+
+## Funding
+Development supported by NSF ICER 1343760
+
+## License
+MIT 
