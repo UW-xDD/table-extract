@@ -150,6 +150,7 @@ def classify_areas(page, doc_stats):
 # Summarize the area stats of a given document
 def summarize_document(area_stats):
     # Don't use areas with 1 line or no words in creating summary statistics
+
     return {
         'word_separation_mean': np.nanmean([np.nanmean(area['word_distances']) for area in area_stats if area['words'] > 0 and area['lines'] > 1]),
         'word_separation_median': np.nanmedian([np.nanmean(area['word_distances']) for area in area_stats if area['words'] > 0 and area['lines'] > 1]),
@@ -166,9 +167,8 @@ def summarize_document(area_stats):
         'word_height_avg': np.nanmean([area['word_height_avg'] for area in area_stats if area['words'] > 0 and area['lines'] > 1]),
         'word_height_avg_median': np.nanmedian([area['word_height_avg'] for area in area_stats if area['words'] > 0 and area['lines'] > 1]),
         'word_height_avg_std': np.nanstd([area['word_height_avg'] for area in area_stats if area['words'] > 0 and area['lines'] > 1]),
-
-        'line_height_avg': np.nanmean([a for a in area['line_heights'] for area in area_stats]),
-        'line_height_std': np.nanstd([a for a in area['line_heights'] for area in area_stats])
+        'line_height_avg': np.nanmean(reduce(lambda x,y :x+y, [[a for a in area['line_heights']] for area in area_stats])),
+        'line_height_std': np.nanstd(reduce(lambda x,y :x+y, [[a for a in area['line_heights']] for area in area_stats]))
     }
 
 def line_word_height(line):

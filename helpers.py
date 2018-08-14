@@ -1,6 +1,7 @@
 import math
 import numpy as np
 import itertools
+
 from PIL import Image
 from shapely.geometry import Polygon
 from shapely.ops import cascaded_union
