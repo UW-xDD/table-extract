@@ -1,3 +1,5 @@
+import sys
+import os
 from bs4 import BeautifulSoup
 from plot import plot
 import math
@@ -8,7 +10,7 @@ import helpers
 import glob
 np.set_printoptions(threshold=np.inf)
 # Grab this much extra space around tables
-padding = 10
+padding = 20
 
 '''
 Tesseract hierarchy:
@@ -56,18 +58,42 @@ def classify_areas(page, doc_stats):
         for gap in area['gaps']:
             area['table_score'] += 4
 
-        # Giant blank areas are probably tables
+        #
+        # Giant blank areas are *probably* tables
+        #    average line height > (document average line height + 100)
+        #    area > 250000
+        #
         if np.nanmean(area['line_heights']) > doc_stats['line_height_avg'] + 100 and area['area'] > 250000:
             area['type'] = 'table'
             area['table_score'] += 10
 
-        # Separator lines are only one line, have no words or other attributes
+        #
+        # Separator lines
+        #    1 line
+        #    0 words
+        #    word separation index === 0
+        #    word height index === 0
+        #    word height average === 0
+        #
         elif area['lines'] == 1 and area['words'] == 0 and area['word_separation_index'] == 0 and area['word_height_index'] == 0 and area['word_height_avg'] == 0:
             area['type'] = 'line'
 
+        #
+        # Tables
+        #    word separation index >= (document median word separation index + 1 standard deviation)
+        #    area covered by words <= (document word area median - 1 standard deviation)
+        #    more than 1 line
+        #
         elif (area['word_separation_index'] >= (doc_stats['word_separation_index_median'] + doc_stats['word_separation_index_std'])) and (area['word_area_index'] <= (doc_stats['word_area_index_median'] - doc_stats['word_area_index_std'])) and area['lines'] > 1:
             area['type'] = 'table'
 
+        #
+        # Text blocks
+        #    word separation index < (document word separation median + 1 standard deviation)
+        #    area covered by words > (document word area index - 0.5 standard deviation)
+        #    area covered by words < (document word area index + 0.5 standard deviation)
+        #    more than 1 line
+        #
         elif (area['word_separation_index'] < (doc_stats['word_separation_index_median'] + doc_stats['word_separation_index_std'])) and (area['word_area_index'] > (doc_stats['word_area_index_median'] - (doc_stats['word_area_index_std']/float(2))) and area['word_area_index'] < (doc_stats['word_area_index_median'] + (doc_stats['word_area_index_std']/float(2)))) and area['lines'] > 1:
             area['type'] = 'text block'
 
@@ -80,10 +106,13 @@ def classify_areas(page, doc_stats):
             area['type'] = 'other'
 
         # Tally other attributes that are indicative of tables
+        # the area's word separation index is >= the median separation index + 1 standard deviation
         if area['word_separation_index'] >= (doc_stats['word_separation_index_median'] + doc_stats['word_separation_index_std']):
             area['table_score'] += 1
+        # The area covered by words <= the word area median - 1 standard deviation
         if area['word_area_index'] <= (doc_stats['word_area_index_median'] - doc_stats['word_area_index_std']):
             area['table_score'] += 1
+        # It has more than 1 line
         if area['lines'] > 1:
             area['table_score'] += 1
 
@@ -224,123 +253,7 @@ def area_summary(area):
 
     return summary
 
-# Entry into table extraction
-def extract_tables(document_path):
-    page_paths = glob.glob(document_path + '/tesseract/*.html')
 
-    pages = []
-    figures = []
-    for page_no, page in enumerate(page_paths):
-        num = page.split('/')[-1].replace('.html', '').replace('page_', '')
-        # Read in each tesseract page with BeautifulSoup so we can look at the document holistically
-        with open(page) as hocr:
-            text = hocr.read()
-            soup = BeautifulSoup(text, 'html.parser')
-            pages.append({
-                'page_no': num,
-                'soup': soup,
-                'page': helpers.extractbbox(soup.find_all('div', 'ocr_page')[0].get('title')),
-                'areas': [ area_summary(area) for area in soup.find_all('div', 'ocr_carea') ],
-                'lines': [ line for line in soup.find_all('span', 'ocr_line') ]
-            })
-
-            # Attempt to identify all charts/tables/etc in the paper by looking at the text layer
-            # i.e. It is useful for us to know if the text mentions "see table 4", because if the caption
-            # for table 4 is distorted in the text layer ("teble 4", for example), we can still guess that
-            # it is table 4 because of it's position in the document and our prior knowledge that a table 4
-            # exists
-            page_content = soup.getText().strip().replace('\n', ' ').replace('  ', ' ').lower()
-            for result in re.findall('(table|figure|fig|map|appendix|app|appx|tbl)(\.)? (\d+)(\.)?', page_content, flags=re.IGNORECASE):
-                figures.append(' '.join(' '.join(result).replace('.', '').replace('figure', 'fig').split()).lower())
-
-    # Clean up the list of figures/tables/etc
-    figures = sorted(set(figures))
-    pruned_figures = []
-    order = 1
-    current_type = ''
-    for fig in figures:
-        parts = fig.split(' ')
-        if current_type == '':
-            current_type = parts[0]
-            order = int(parts[1])
-            pruned_figures.append(fig)
-        elif parts[0] == current_type and int(parts[1]) == (order + 1):
-            order = int(parts[1])
-            pruned_figures.append(fig)
-        elif parts[0] != current_type:
-            current_type = parts[0]
-            order = int(parts[1])
-            pruned_figures.append(fig)
-
-    # map/reduce
-    page_areas = [ page['areas'] for page in pages ]
-    area_stats = [ area for areas in page_areas for area in areas ]
-
-    # Calculate summary stats for the document from all areas identified by Tesseract
-    doc_stats = summarize_document(area_stats)
-
-    # Classify and assign a table score to each area in each page
-    pages = [classify_areas(page, doc_stats) for page in pages]
-
-    # Identify the areas that classified as 'text block's and record their widths
-    text_block_widths = []
-    for page in pages:
-        for area in page['areas']:
-            if area['type'] == 'text block':
-                text_block_widths.append( area['x2'] - area['x1'] )
-
-
-    # Calculate stats about the text blocks in the whole document. First get rid of outliers
-    two_sigma = [ val for val in text_block_widths if val > (np.nanmedian(text_block_widths) - (np.nanstd(text_block_widths) * 2)) and val < (np.nanmedian(text_block_widths) + (np.nanstd(text_block_widths) * 2))]
-
-    # Update doc stats, then reclassify
-    doc_stats['text_block_median'] = np.nanmedian(two_sigma)
-    doc_stats['text_block_std'] = np.nanstd(two_sigma)
-
-    # Reclassify all areas based on the stats of the whole document
-    for page in pages:
-        for area in page['areas']:
-            width = area['x2'] - area['x1']
-            # Not a text block if it's width is outside of 2 sigma
-            if area['type'] == 'text block' and (width < doc_stats['text_block_median'] - (2 * doc_stats['text_block_std']) or width > doc_stats['text_block_median'] + (2 * doc_stats['text_block_std'])):
-                area['type'] = 'other'
-
-
-    doc_stats['found_tables'] = {}
-    pruned_figures = sorted(set(pruned_figures))
-    print 'these tables were found --'
-    for each in pruned_figures:
-        print '    ', each
-        doc_stats['found_tables'][each] = False
-
-
-    for page in pages:
-        page_extracts = process_page(doc_stats, page)
-
-        found = []
-        for e in page_extracts:
-            if e['name'] in found:
-                 e['name'] = e['name'] + '*'
-
-            found.append(e['name'])
-
-        # DEBUG
-        # if page['page_no'] == '5':
-        #     for idx, area in enumerate(page['areas']):
-        #         print 'Area %s -- %s (%s)' % (idx, area['type'], area['table_score'])
-        #         print '    Lines: %s' % (area['lines'], )
-        #         print '    Words: %s' % (area['words'], )
-        #         print '    Area: %s' % (area['area'], )
-        #         print '    Word separation index: %s' % ('%.2f' % area['word_separation_index'], )
-        #         print '    Word height index: %s' % ('%.2f' % area['word_height_index'], )
-        #         print '    Word height avg: %s' % ('%.2f' % area['word_height_avg'], )
-        #         print '    Area covered by words: %s%%' % (int(area['word_area_index'] * 100), )
-        #         print '    Average word height: %s' % ('%.2f' % area['word_height_avg'])
-        #         print '    Gaps: %s' % (area['gaps'])
-        #         print '    Line height average: %s' %(np.nanmean(area['line_heights']))
-        #     plot(page['soup'], page_extracts)
-        for table in page_extracts:
-            helpers.extract_table(document_path, page['page_no'], table)
 
 def process_page(doc_stats, page):
     def find_above_and_below(extract):
@@ -428,6 +341,51 @@ def process_page(doc_stats, page):
                     stopped = True
 
 
+    # Find all areas that each area intersects
+    areas = {}
+    for idx_a, area_a in enumerate(page['areas']):
+        areas[idx_a] = []
+
+        for idx_b, area_b in enumerate(page['areas']):
+            if idx_a != idx_b and helpers.rectangles_intersect(helpers.extractbbox(area_a['soup'].get('title')), helpers.extractbbox(area_b['soup'].get('title'))):
+                areas[idx_a].append(idx_b)
+
+#   If area intersects others, recursively get all intersections
+    # new_areas = []
+    # for area_idx in areas:
+    #     if len(areas[area_idx]):
+    #         new_area = { 'x1': 9999999, 'y1': 9999999, 'x2': -9999999, 'y2': -9999999 }
+    #         new_area_consists_of = []
+    #         all_intersections = [ areas[i] for i in areas if i in areas[area_idx]  ]
+    #         # Flatten and filter
+    #         all_intersections = set([ item for sublist in all_intersections for item in sublist ])
+    #         for area in all_intersections:
+    #             new_area_consists_of.append(area)
+    #             new_area = helpers.enlarge_extract(new_area, helpers.extractbbox(page['areas'][area]['soup'].get('title')))
+    #
+    #         if new_area['x1'] != 9999999:
+    #             new_area['consists_of'] = new_area_consists_of
+    #             new_areas.append(new_area)
+    #
+    # # Filter unique new areas and remove areas that this new area covers
+    # unique_new_areas = []
+    # for area in new_areas:
+    #     # Does this area overlap with any areas already accounted for?
+    #     found = False
+    #     for uidx, each in enumerate(unique_new_areas):
+    #         # If it does, add it to that existing area
+    #         if len(set(each['consists_of']).intersection(area['consists_of'])) > 0:
+    #             found = True
+    #             unique_new_areas[uidx]['consists_of'] = list(set(each['consists_of'] + area['consists_of']))
+    #             new_area = helpers.enlarge_extract(each, area)
+    #             for key in new_area:
+    #                 unique_new_areas[uidx][key] = new_area[key]
+    #
+    #     if not found:
+    #         unique_new_areas.append(area)
+    #
+    # print 'UNIQUE NEW AREAS', unique_new_areas
+
     # Find the captions/titles for charts, figures, maps, tables
     indicator_lines = []
 
@@ -464,6 +422,18 @@ def process_page(doc_stats, page):
     for area_idx, area in enumerate(page['areas']):
         if area['type'] == 'table':
             # Get the distances between the given area and all captions
+            distances = [ { 'idx': line_idx, 'distance': helpers.min_distance(area, line) } for line_idx, line in enumerate(indicator_lines) ]
+
+            # bail if there aren't any indicator_lines
+            if len(distances) == 0:
+                break
+
+            distances_sorted = sorted(distances, key=lambda k: k['distance'])
+
+            for line in distances_sorted:
+                # Check if it intersects any text areas
+                potential_area = helpers.enlarge_extract(area, indicator_lines[line['idx']])
+
             distances = [helpers.min_distance(area, line) for line in indicator_lines]
 
             # The index of the nearest caption
@@ -471,6 +441,8 @@ def process_page(doc_stats, page):
                 break
 
             nearest_caption = distances.index(min(distances))
+
+            # TODO: Need to check if expanding to this caption would intersect any text areas that don't intersect the caption
             # Assign the nearest caption to the area
             area['caption'] = nearest_caption
             # Bookkeep
@@ -589,11 +561,17 @@ def process_page(doc_stats, page):
     # Extracts are bounding boxes that will be used to actually extract the tables
     extracts = []
     for caption, areas in caption_areas.iteritems():
+        print indicator_lines[caption]
         area_of_interest_centroid_y_mean = np.mean([ helpers.centroid(page['areas'][area])['y'] for area in areas ])
         indicator_line_centroid_y = helpers.centroid(indicator_lines[caption])['y']
 
         areas_of_interest = [ page['areas'][area] for area in areas ]
-        areas_of_interest.append(indicator_lines[caption])
+
+        # Find the area that the indicator line intersects
+        for area in page['areas']:
+            if helpers.rectangles_intersect(area, indicator_lines[caption]):
+                areas_of_interest.append(area)
+        #areas_of_interest.append(indicator_lines[caption])
 
         # The extract is designated by the min/max coordinates of the caption and cooresponding table(s)
         extracts.append({
@@ -663,3 +641,159 @@ def process_page(doc_stats, page):
             expand_extraction(len(extracts) - 1, extract_relations[len(extracts) - 1])
 
     return extracts
+
+
+# Entry into table extraction
+def extract_tables(document_path):
+    page_paths = glob.glob(document_path + '/tesseract/*.html')
+
+    # Check if a native text layer is available and load it
+    text_layer = ''
+    has_text_layer = False
+    if os.path.exists(document_path + '/text.txt') and os.path.getsize(document_path + '/text.txt') > 1:
+        with open(document_path + '/text.txt') as t:
+            text_layer = t.read()
+            has_text_layer = True
+    else:
+        print 'Does not have text layer'
+
+    pages = []
+    for page_no, page in enumerate(page_paths):
+        # Read in each tesseract page with BeautifulSoup so we can look at the document holistically
+        with open(page) as hocr:
+            text = hocr.read()
+            soup = BeautifulSoup(text, 'html.parser')
+            pages.append({
+                'page_no': page.split('/')[-1].replace('.html', '').replace('page_', ''),
+                'soup': soup,
+                'page': helpers.extractbbox(soup.find_all('div', 'ocr_page')[0].get('title')),
+                'areas': [ area_summary(area) for area in soup.find_all('div', 'ocr_carea') ],
+                'lines': [ line for line in soup.find_all('span', 'ocr_line') ]
+            })
+
+            # Record the OCR-identified text if a native text layer was unavailable
+            if not has_text_layer:
+                text_layer += soup.getText()
+
+
+    # Attempt to identify all charts/tables/etc in the paper by looking at the text layer
+    # i.e. It is useful for us to know if the text mentions "see table 4", because if the caption
+    # for table 4 is distorted in the text layer ("teble 4", for example), we can still guess that
+    # it is table 4 because of it's position in the document and our prior knowledge that a table 4
+    # exists
+    text_layer = text_layer.strip().replace('\n', ' ').replace('  ', ' ').lower()
+    figures = []
+    for result in re.findall('(table|figure|fig|map|appendix|app|appx|tbl)(\.)? (\d+)(\.)?', text_layer, flags=re.IGNORECASE):
+        figures.append(' '.join(' '.join(result).replace('.', '').replace('figure', 'fig').split()).lower())
+
+    # Clean up the list of figures/tables/etc
+    figures = sorted(set(figures))
+    figure_idx = {}
+    for fig in figures:
+        parts = fig.split(' ')
+        # Need to try/except because often times the "number" is actually a string that cannot be parsed into an integer
+        if parts[0] in figure_idx:
+            try:
+                figure_idx[parts[0]].append(int(parts[1]))
+            except:
+                continue
+        else:
+            try:
+                figure_idx[parts[0]] = [ int(parts[1]) ]
+            except:
+                continue
+
+    # Clean up for reformat
+    for key in figure_idx:
+        figure_idx[key] = helpers.clean_range(sorted(set(figure_idx[key])))
+
+    # map/reduce
+    page_areas = [ page['areas'] for page in pages ]
+    area_stats = [ area for areas in page_areas for area in areas ]
+
+    # Calculate summary stats for the document from all areas identified by Tesseract
+    doc_stats = summarize_document(area_stats)
+
+    # Classify and assign a table score to each area in each page
+    pages = [classify_areas(page, doc_stats) for page in pages]
+
+    # Identify the areas that classified as 'text block's and record their widths
+    text_block_widths = []
+    for page in pages:
+        for area in page['areas']:
+            if area['type'] == 'text block':
+                text_block_widths.append( area['x2'] - area['x1'] )
+
+
+    # Calculate stats about the text blocks in the whole document. First get rid of outliers
+    two_sigma = [ val for val in text_block_widths if val > (np.nanmedian(text_block_widths) - (np.nanstd(text_block_widths) * 2)) and val < (np.nanmedian(text_block_widths) + (np.nanstd(text_block_widths) * 2))]
+
+    # Update doc stats, then reclassify
+    doc_stats['text_block_median'] = np.nanmedian(two_sigma)
+    doc_stats['text_block_std'] = np.nanstd(two_sigma)
+
+    # Reclassify all areas based on the stats of the whole document
+    for page in pages:
+        for area in page['areas']:
+            width = area['x2'] - area['x1']
+            # Not a text block if it's width is outside of 2 sigma
+            if area['type'] == 'text block' and (width < doc_stats['text_block_median'] - (2 * doc_stats['text_block_std']) or width > doc_stats['text_block_median'] + (2 * doc_stats['text_block_std'])):
+                area['type'] = 'other'
+
+
+    # Most documents only contain one page height, but others mix landscape and portrait pages
+    # Figure out which is the most common
+    doc_stats['page_height'] = np.bincount([ page['page']['y2'] - page['page']['y1'] for page in pages ]).argmax()
+    doc_stats['page_width'] = np.bincount([ page['page']['x2'] - page['page']['x1'] for page in pages ]).argmax()
+
+    # Find out if a header or footer is present in the document - make sure we don't include them in extracts
+    doc_stats['header'], doc_stats['footer'] = helpers.get_header_footer(pages, doc_stats['page_height'], doc_stats['page_width'])
+
+    new_page_areas = [ { 'page_no': page['page_no'], 'areas': helpers.reclassify_areas(page['areas'], doc_stats['line_height_avg']/2) } for page in pages ]
+    new_pages = {}
+    for page in new_page_areas:
+        new_pages[page['page_no']] = { 'areas': page['areas'] }
+
+    for page in pages:
+        for ai, area in enumerate(new_pages[page['page_no']]['areas']):
+            new_pages[page['page_no']]['areas'][ai]['lines'] = [ line for line in page['soup'].find_all('span', 'ocr_line') if helpers.rectangles_intersect(area['geom'], helpers.extractbbox(line.get('title')))]
+
+
+    for page in pages:
+        new_areas = helpers.reclassify_areas(page['areas'], doc_stats['line_height_avg']/2)
+        helpers.plot_new_areas(page['page_no'], new_areas)
+
+    sys.exit()
+
+    doc_stats['found_tables'] = figure_idx
+    print 'these tables were found --'
+    for ttype in figure_idx:
+        print '    ', ttype, figure_idx[ttype]
+
+    for page in pages:
+        page_extracts = process_page(doc_stats, page)
+
+        found = []
+        for e in page_extracts:
+            if e['name'] in found:
+                 e['name'] = e['name'] + '*'
+
+            found.append(e['name'])
+
+        # DEBUG
+        # if page['page_no'] == '5':
+        #     for idx, area in enumerate(page['areas']):
+        #         print 'Area %s -- %s (%s)' % (idx, area['type'], area['table_score'])
+        #         print '    Lines: %s' % (area['lines'], )
+        #         print '    Words: %s' % (area['words'], )
+        #         print '    Area: %s' % (area['area'], )
+        #         print '    Word separation index: %s' % ('%.2f' % area['word_separation_index'], )
+        #         print '    Word height index: %s' % ('%.2f' % area['word_height_index'], )
+        #         print '    Word height avg: %s' % ('%.2f' % area['word_height_avg'], )
+        #         print '    Area covered by words: %s%%' % (int(area['word_area_index'] * 100), )
+        #         print '    Average word height: %s' % ('%.2f' % area['word_height_avg'])
+        #         print '    Gaps: %s' % (area['gaps'])
+        #         print '    Line height average: %s' %(np.nanmean(area['line_heights']))
+        #     plot(page['soup'], page_extracts)
+    for table in page_extracts:
+        helpers.extract_table(document_path, page['page_no'], table)

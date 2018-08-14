@@ -28,16 +28,27 @@ def tess(infile, outfile):
     soup = BeautifulSoup(text, "html.parser")
     pages = soup.find_all('div', 'ocr_page')
     careas = soup.find_all('div', 'ocr_carea')
-    #pars = soup.find_all('p', 'ocr_par')
+    pars = soup.find_all('p', 'ocr_par')
     words = soup.find_all('span', 'ocrx_word')
 
     page_boxes = [makeBox(getbbox(page.get('title'))) for page in pages]
     carea_boxes = [makeBox(getbbox(carea.get('title'))) for carea in careas]
-    #par_boxes = [makeBox(getbbox(par.get('title'))) for par in pars]
+    par_boxes = [makeBox(getbbox(par.get('title'))) for par in pars]
     word_boxes = [makeBox(getbbox(word.get('title'))) for word in words]
 
     fig = plt.figure()
     ax = fig.add_subplot(111, aspect='equal')
+
+    for box in page_boxes:
+        ax.add_patch(patches.Rectangle(
+            (box['_left'], box['_top']),
+            box['_right'] - box['_left'],
+            box['_bottom'] - box['_top'],
+            fill=False,
+            linewidth=1,
+            edgecolor="#2b8cbe"
+            )
+            )
 
     for box in carea_boxes:
         ax.add_patch(patches.Rectangle(
@@ -45,11 +56,21 @@ def tess(infile, outfile):
             box['_right'] - box['_left'],
             box['_bottom'] - box['_top'],
             fill=False,
-            linewidth=0.5,
-            edgecolor="#0000FF"
+            linewidth=0.75,
+            edgecolor="#7bccc4"
             )
             )
 
+    for box in par_boxes:
+        ax.add_patch(patches.Rectangle(
+            (box['_left'], box['_top']),
+            box['_right'] - box['_left'],
+            box['_bottom'] - box['_top'],
+            fill=False,
+            linewidth=0.5,
+            edgecolor="#bae4bc"
+            )
+            )
 
     for box in word_boxes:
         ax.add_patch(patches.Rectangle(
