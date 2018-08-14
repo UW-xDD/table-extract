@@ -8,6 +8,12 @@ If you are using MacOS you can install the dependencies as so:
 brew install ghostscript parallel tesseract
 ````
 
+Next, install the Python dependencies:
+
+````
+pip install -r requirements.txt
+````
+
 ## Example usage
 Assuming you have a document named `my_doc.pdf`, you can prepare it for processing and extract tables as so:
 
