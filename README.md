@@ -8,6 +8,15 @@ If you are using MacOS you can install the dependencies as so:
 brew install ghostscript parallel tesseract
 ````
 
+## Example usage
+Assuming you have a document named `my_doc.pdf`, you can prepare it for processing and extract tables as so:
+
+````bash
+./preprocess.sh ./my_doc_processed ./my_doc.pdf
+python do_extract.py ./my_doc_processed
+````
+
+This will extract tables and figures to `./my_doc_processed/tables`. The first command will parse the PDF into the necessary directory structure and create the necessary data products for Tesseract. The second will extract tables.
 
 ## preprocess.sh
 Script for prepping a PDF for table extraction. Converts each page of the PDF to a PNG with Ghostscript, then runs the PNGs through Tesseract. Also runs each page through `annotate.py` to assist in debugging. Assumes local installation of [tesseract-ocr](https://github.com/tesseract-ocr/tesseract).
@@ -29,30 +38,8 @@ document_name
   text.txt (The extracted text layer)
 ````
 
-## do_extract.py
-Script for processing the output of `pdf2hocr`.
-
-#### Example usage
-
-````
-python do_extract.py ~/Documents/doc
-````
-
-## annotate.py
-Creates a PNG that shows the areas of a page identified by Tesseract. Useful for debugging.
-
-## helpers.py
-Various functions for processing tables.
-
-## table_extractor.py
-Entry script to table extraction.
-
-#### extract_tables(document_path)
-Process a document for tables. Pass it a path to a document that has been pre-processed with pdf2hocr
-
-
 ## Funding
 Development supported by NSF ICER 1343760
 
 ## License
-MIT 
+MIT
