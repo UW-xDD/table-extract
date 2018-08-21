@@ -8,6 +8,12 @@ If you are using MacOS you can install the dependencies as so:
 brew install ghostscript parallel tesseract
 ````
 
+Note: Linux users may need to install the Tcl/Tk interface. On Ubuntu:
+
+```
+sudo apt install python-tk
+```
+
 Next, install the Python dependencies:
 
 ````
