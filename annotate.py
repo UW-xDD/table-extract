@@ -39,6 +39,17 @@ def tess(infile, outfile):
     fig = plt.figure()
     ax = fig.add_subplot(111, aspect='equal')
 
+    for box in page_boxes:
+        ax.add_patch(patches.Rectangle(
+            (box['_left'], box['_top']),
+            box['_right'] - box['_left'],
+            box['_bottom'] - box['_top'],
+            fill=False,
+            linewidth=0.2,
+            edgecolor="#1d1f21"
+        )
+        )
+
     for box in carea_boxes:
         ax.add_patch(patches.Rectangle(
             (box['_left'], box['_top']),
@@ -46,10 +57,9 @@ def tess(infile, outfile):
             box['_bottom'] - box['_top'],
             fill=False,
             linewidth=0.5,
-            edgecolor="#0000FF"
+            edgecolor="#282a2e"
             )
             )
-
 
     for box in word_boxes:
         ax.add_patch(patches.Rectangle(
@@ -58,7 +68,7 @@ def tess(infile, outfile):
             box['_bottom'] - box['_top'],
             fill=False,
             linewidth=0.1,
-            edgecolor="#000000"
+            edgecolor="#373b41"
             )
             )
 
