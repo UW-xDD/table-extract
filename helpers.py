@@ -30,7 +30,9 @@ def union_extracts(extracts):
 
 def extract_table(doc, page, extract):
     image = Image.open('%s/png/page_%s.png' % (doc, page))
-    image.crop((extract['x1'], extract['y1'], extract['x2'], extract['y2'])).save(doc + '/tables/page_' + str(page) + '_' + extract['name'].replace(' ', '_').replace('.', '') + '.png', 'png')
+    table_path = doc + '/tables/page_' + str(page) + '_' + extract['name'].replace(' ', '_').replace('.', '') + '.png'
+    cropped_table = image.crop((extract['x1'], extract['y1'], extract['x2'], extract['y2']))
+    cropped_table.save(table_path, format='png')
 
 
 def enlarge_extract(extract, area):
