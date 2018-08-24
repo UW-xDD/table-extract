@@ -6,6 +6,9 @@ import numpy as np
 import itertools
 import helpers
 import glob
+
+from vis_table_detection import plot_table_detection
+
 np.set_printoptions(threshold=np.inf)
 # Grab this much extra space around tables
 padding = 10
@@ -281,6 +284,8 @@ def extract_tables(document_path):
 
     # Classify and assign a table score to each area in each page
     pages = [classify_areas(page, doc_stats) for page in pages]
+
+    plot_table_detection(pages, document_path)
 
     # Identify the areas that classified as 'text block's and record their widths
     text_block_widths = []
