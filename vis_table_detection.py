@@ -18,8 +18,8 @@ def make_rectangle(area):
     color = get_color_code(area['type'])
     rect = patches.Rectangle(
             (box['_left'], box['_top']),
-            box['_right'] - box['_left'],
-            box['_bottom'] - box['_top'],
+            box['width'],
+            box['height'],
             fill=False,
             linewidth=0.4,
             edgecolor=color
@@ -29,12 +29,12 @@ def make_rectangle(area):
 
 def get_color_code(area_type):
     return {
-        'table': "#282a2e",
-        'text block': "#ff0000",
-        'decoration': "#282a2e",
-        'caption': "#282a2e",
-        'line': "#282a2e",
-        'other': "#282a2e"
+        'table': "#912226", # red
+        'text block': "#969896", # gray
+        'decoration': "#1d2594", # blue
+        'caption': "#778900", # green
+        'line': "#1d1f21", # black
+        'other': "#ae7b00" # orange
     }[area_type]
 
 
@@ -43,11 +43,12 @@ def plot_table_detection(pages, path):
         plot_table_detection_per_page(page, path)
 
 
-def plot_table_detection_per_page(page, path, out_dir='table-detection'):
+def plot_table_detection_per_page(page, path, overlay=True, out_dir='table-detection'):
     fig = plt.figure()
     ax = fig.add_subplot(111, aspect='equal')
 
     for area in page['areas']:
+        # TODO make use of the table scores.
         ax.add_patch(make_rectangle(area))
 
     bbox_page = make_box(page['page'])
@@ -56,6 +57,9 @@ def plot_table_detection_per_page(page, path, out_dir='table-detection'):
     plt.axis("off")
     ax = plt.gca()
     ax.invert_yaxis()
+    if overlay:
+        img = plt.imread(path + "/png/page_" + page['page_no'] + ".png")
+        ax.imshow(img)
     plt.axis('off')
     outfile = path + "/" + out_dir + "/page_" + page['page_no'] + ".png"
-    fig.savefig(outfile, dpi=400, bbox_inches='tight', pad_inches=0)
+    fig.savefig(outfile, dpi=600, bbox_inches='tight', pad_inches=0)
