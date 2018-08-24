@@ -9,7 +9,7 @@ mkdir -p $1
 mkdir -p $1/png
 mkdir -p $1/tesseract
 mkdir -p $1/tesseract-txt
-mkdir -p $1/annotated
+mkdir -p $1/ocr_annotations
 mkdir -p $1/tables
 
 gs -dBATCH -dNOPAUSE -sDEVICE=png16m -dGraphicsAlphaBits=4 -dTextAlphaBits=4 -r600 -sOutputFile="$1/png/page_%d.png" $2
