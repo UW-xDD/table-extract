@@ -3,7 +3,8 @@ from bs4 import BeautifulSoup
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
-def makeBox(bbox):
+
+def make_box(bbox):
     return {
         '_left': int(bbox[0]),
         '_top': int(bbox[1]),
@@ -13,13 +14,15 @@ def makeBox(bbox):
         'height': int(bbox[3]) - int(bbox[1])
     }
 
-def getbbox(title):
+
+def get_bbox(title):
     title_parts = title.split(';')
     for part in title_parts:
         if part.strip()[0:4] == 'bbox':
             return part.replace('bbox', '').strip().split()
 
     return
+
 
 def tess(infile, outfile):
     with open(infile) as hocr:
@@ -31,10 +34,10 @@ def tess(infile, outfile):
     #pars = soup.find_all('p', 'ocr_par')
     words = soup.find_all('span', 'ocrx_word')
 
-    page_boxes = [makeBox(getbbox(page.get('title'))) for page in pages]
-    carea_boxes = [makeBox(getbbox(carea.get('title'))) for carea in careas]
+    page_boxes = [make_box(get_bbox(page.get('title'))) for page in pages]
+    carea_boxes = [make_box(get_bbox(carea.get('title'))) for carea in careas]
     #par_boxes = [makeBox(getbbox(par.get('title'))) for par in pars]
-    word_boxes = [makeBox(getbbox(word.get('title'))) for word in words]
+    word_boxes = [make_box(get_bbox(word.get('title'))) for word in words]
 
     fig = plt.figure()
     ax = fig.add_subplot(111, aspect='equal')
