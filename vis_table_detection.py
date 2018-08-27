@@ -47,9 +47,13 @@ def plot_table_detection_per_page(page, path, overlay=True, out_dir='table-detec
     fig = plt.figure()
     ax = fig.add_subplot(111, aspect='equal')
 
-    for area in page['areas']:
+    areas = page['areas']
+
+    for area in areas:
         # TODO make use of the table scores.
         ax.add_patch(make_rectangle(area))
+
+    plot_table_scores(ax, areas)
 
     bbox_page = make_box(page['page'])
     plt.ylim(0, bbox_page['_bottom'])
@@ -63,3 +67,17 @@ def plot_table_detection_per_page(page, path, overlay=True, out_dir='table-detec
     plt.axis('off')
     outfile = path + "/" + out_dir + "/page_" + page['page_no'] + ".png"
     fig.savefig(outfile, dpi=600, bbox_inches='tight', pad_inches=0)
+
+
+def plot_table_scores(plot, areas):
+    for area in areas:
+        box = make_box(area)
+        color = get_color_code(area['type'])
+        table_score_str = "ts:{}".format(area['table_score'])
+        plot.text(box['_left'] + 0.5 * box['width'], box['_top'] + 0.5 * box['height'], table_score_str,
+                  horizontalalignment='center',
+                  verticalalignment='center',
+                  color=color,
+                  fontsize=8,
+                  alpha=0.6)
+
