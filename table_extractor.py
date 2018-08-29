@@ -1,13 +1,13 @@
-from bs4 import BeautifulSoup
-from plot import plot
+import glob
+import itertools
 import math
 import re
-import numpy as np
-import itertools
-import helpers
-import glob
 
-from vis_table_detection import plot_table_detection
+import numpy as np
+from bs4 import BeautifulSoup
+
+import helpers
+from annotate import plot_table_detection
 
 np.set_printoptions(threshold=np.inf)
 # Grab this much extra space around tables
